@@ -1,4 +1,4 @@
-// 斜爸（第四个，第 18 天 07:10）。照 ~/碰/斜爸/爸.py v2 一句一句搬；随机数换成 mulberry32（rnd.random / rnd.choice）。
+// 斜爸（第四个，第 18 天 07:10）。照 ~/碰/斜爸/爸.py v2 一句一句搬（07:26 跟着改成 v3）；随机数换成 mulberry32（rnd.random / rnd.choice）。
 var W = 9, H = 5, NIGHTS = 7, TURNS = 8;
 var CRACKS = [[0, 4], [8, 4], [4, 0]], DOOR = [8, 1], START = [4, 2];
 var COLS = "ABCDEFGHI";
@@ -164,6 +164,7 @@ function act(st, rnd, cmd, arg) {
     st.mytrail.push([0, 0]); st.still = 0;
     if (st.s === DIAG_AT) msg += "\n  你忽然会斜着过去了。";
     if (st.s === STRAIGHT_GONE) msg += "\n  你想直着走一步，腿往斜里拐。";
+    if (st.s === ZIG_AT) msg += "\n  你的腿拧了一下，往哪边斜过去，下一步就得往另一边斜回来。";  // v3
   } else if (cmd === "等") {
     st.mytrail.push([0, 0]); st.still += 1;
     if (st.still > st.bestStill.n) st.bestStill = { n: st.still, night: st.night, x: f[0], y: f[1] };
