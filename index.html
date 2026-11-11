@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>斜爸</title>
+<style>
+  body { background: #efece4; color: #2b2b2b; font: 15px/1.7 -apple-system, "PingFang SC", "Hiragino Sans GB", sans-serif; margin: 0; padding: 18px; }
+  #wrap { max-width: 820px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 6px; font-weight: 600; }
+  .intro { color: #555; margin: 0 0 14px; }
+  #out { height: 34vh !important; font: 15px/1.55 "SF Mono", Menlo, "PingFang SC", monospace; white-space: pre-wrap; background: #fbfaf5; border: 1px solid #ddd8c8; border-radius: 6px; padding: 12px 14px; height: 50vh; overflow-y: auto; }
+  #out .cmd { color: #8a5a20; }
+  #out .old { color: #9a9a9a; }
+  #board { display: inline-grid; grid-template-columns: repeat(10, 30px); grid-auto-rows: 30px; margin: 0 0 10px; font: 17px/30px "PingFang SC", "Hiragino Sans GB", sans-serif; text-align: center; background: #fbfaf5; border: 1px solid #ddd8c8; border-radius: 6px; padding: 6px 10px; }
+  #board .h { color: #999; font-size: 13px; }
+  #board .f { color: #c9c3b3; }
+  #board .r { color: #222; font-weight: 600; }
+  #board .me { color: #9a3a10; font-weight: 700; }
+  #board .k { color: #8a7a5a; }
+  #pads { display: flex; gap: 28px; margin-top: 10px; align-items: flex-start; flex-wrap: wrap; }
+  .pad { display: grid; grid-template-columns: repeat(3, 46px); grid-gap: 4px; }
+  .pad .lab { grid-column: 1 / 4; color: #777; font-size: 13px; }
+  button { font: inherit; padding: 4px 0; border: 1px solid #999; background: #fff; border-radius: 4px; cursor: pointer; }
+  button:disabled { color: #bbb; border-color: #ddd; background: #f4f2ec; cursor: default; }
+  .hint { color: #777; font-size: 13px; margin-top: 14px; }
+  #again { padding: 3px 11px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <h1>斜爸</h1>
+  <p class="intro">一个小文字游戏。七夜，十来分钟。<br>点左边那几个键走一格（中间是“等”）；点右边那几个键朝那边扎一下。</p>
+  <div id="board"></div>
+  <div id="out"></div>
+  <div id="pads">
+    <div class="pad" id="walk"><span class="lab">走</span></div>
+    <div class="pad" id="stab"><span class="lab">扎</span></div>
+  </div>
+  <p class="hint"><button id="again">再开一局</button>　从舒尔茨《蟑螂》来。</p>
+</div>
+<script src="爸.js"></script>
+<script>
+var out = document.getElementById('out');
+var game = null;
+var LAYOUT = [['左上', '↖'], ['上', '↑'], ['右上', '↗'], ['左', '←'], [null, '等'], ['右', '→'], ['左下', '↙'], ['下', '↓'], ['右下', '↘']];
+var walkBtns = {}, stabBtns = {};
+function addText(text, cls) {
+  var d = document.createElement('div'); if (cls) d.className = cls; d.textContent = text; out.appendChild(d); return d;
+}
+function show(text, label) {
+  out.querySelectorAll('.cur').forEach(function (e) { e.classList.remove('cur'); e.classList.add('old'); });
+  var first = null;
+  if (label) first = addText('> ' + label, 'cmd');
+  var d = addText(text + '\n\n', 'cur');
+  if (!first) first = d;
+  out.scrollTop = first.offsetTop - out.offsetTop - 4;
+  refresh();
+}
+function drawBoard() {
+  var bd = document.getElementById('board'); bd.innerHTML = '';
+  function cell(t, c) { var e = document.createElement('span'); e.textContent = t; if (c) e.className = c; bd.appendChild(e); }
+  cell('', 'h'); 'ABCDEFGHI'.split('').forEach(function (c) { cell(c, 'h'); });
+  var cnt = {};
+  game.roaches.forEach(function (r) { var k = r.x + ',' + r.y; cnt[k] = (cnt[k] || 0) + 1; });
+  for (var y = 0; y < 5; y++) {
+    cell(String(y + 1), 'h');
+    for (var x = 0; x < 9; x++) {
+      var k = x + ',' + y, t = '·', c = 'f';
+      if ((x === 0 && y === 4) || (x === 8 && y === 4) || (x === 4 && y === 0)) { t = '缝'; c = 'k'; }
+      if (x === DOOR[0] && y === DOOR[1]) { t = '门'; c = 'k'; }
+      if (cnt[k]) { t = cnt[k] === 1 ? '蟑' : '蟑' + cnt[k]; c = 'r'; }
+      if (game.inside && !game.over && game.pos[0] === x && game.pos[1] === y) { t = '爸'; c = 'me'; }
+      cell(t, c);
+    }
+  }
+}
+function refresh() {
+  drawBoard();
+  var c = (game && !game.over && game.inside) ? can(game) : [[], []];
+  Object.keys(walkBtns).forEach(function (k) {
+    walkBtns[k].disabled = !(game && !game.over && game.inside) || (k !== '等' && c[0].indexOf(k) < 0);
+  });
+  Object.keys(stabBtns).forEach(function (k) { stabBtns[k].disabled = c[1].indexOf(k) < 0; });
+}
+function start() {
+  out.innerHTML = '';
+  var q = location.search.match(/seed=(\d+)/);
+  game = newGame(q ? parseInt(q[1], 10) : Math.floor(Math.random() * 100000));
+  show('客厅的架子上站着一只填了木屑的秃鹫，一条腿，是你从前养鸟时剩下的最后一只。\n夜里，厨房。地上有东西在动。你手里有一根标枪。\n\n' + statusText(game));
+}
+function doit(cmd, arg, label) {
+  if (!game || game.over) return;
+  var r = step(game, cmd, arg);
+  var text = r.text;
+  if (!game.over) text += '\n\n' + statusText(game);
+  show(text, label);
+}
+LAYOUT.forEach(function (it) {
+  var b = document.createElement('button'); b.textContent = it[1];
+  if (it[0]) { b.onclick = function () { doit(it[0], '', it[0]); }; walkBtns[it[0]] = b; }
+  else { b.onclick = function () { doit('等', '', '等'); }; walkBtns['等'] = b; }
+  document.getElementById('walk').appendChild(b);
+  var s = document.createElement('button');
+  if (it[0]) { s.textContent = it[1]; s.onclick = function () { doit('扎', it[0], '扎 ' + it[0]); }; stabBtns[it[0]] = s; }
+  else { s.textContent = ''; s.disabled = true; s.style.visibility = 'hidden'; }
+  document.getElementById('stab').appendChild(s);
+});
+document.getElementById('again').onclick = start;
+start();
+</script>
+</body>
+</html>
